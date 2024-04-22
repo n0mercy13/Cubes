@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using UnityEngine;
 using Codebase.Logic;
 using Codebase.StaticData;
@@ -6,11 +7,12 @@ using Infrastructure.Services;
 
 namespace Codebase.Infrastructure
 {
-    public partial class GameManager
+    public partial class CubeManager
     {
         private readonly IGameFactory _gameFactory;
         private readonly IGameplayInput _gameplayInput;
         private readonly IRandomService _randomService;
+        private readonly List<Cube> _activeCubes;
         private readonly Camera _camera;
         private readonly RaycastHit[] _hits;
         private readonly Vector3 _initialCubesPosition;
@@ -22,7 +24,7 @@ namespace Codebase.Infrastructure
         private readonly int _minNewCubes;
         private readonly int _maxNewCubes;
 
-        public GameManager(
+        public CubeManager(
             IGameFactory gameFactory,
             IGameplayInput gameplayInput,
             IRandomService randomService,
@@ -32,6 +34,7 @@ namespace Codebase.Infrastructure
             _gameFactory = gameFactory;
             _gameplayInput = gameplayInput;
             _randomService = randomService;
+            _activeCubes = new List<Cube>();
             _camera = sceneData.Camera;
             _hits = new RaycastHit[1];
             _initialCubesPosition = sceneData.InitialSpawnPoint.position;
@@ -48,26 +51,54 @@ namespace Codebase.Infrastructure
 
         private void OnSelected(Vector2 mousePosition)
         {
-            if(TryGetCube(mousePosition, out Cube cube))
+            if(TryGetCube(mousePosition, out Cube cube) == false)
+                return;
+
+            int generation = cube.Generation;
+            Vector3 position = cube.transform.position;
+
+            _activeCubes.Remove(cube);
+            cube.Remove();
+
+            if (TryCreateNewCubes(generation))
             {
-                int generation = cube.Generation;
-                int cubesNumber = _randomService.Range(_minNewCubes, _maxNewCubes);
-                Vector3 spawnPosition = cube.transform.position;
-                cube.Remove();
+                int quantity = _randomService.Range(_minNewCubes, _maxNewCubes);
+                CreateCubes(quantity, generation, position);
+            }
+            else
+            {
+                CreateExplosion(generation, position);
+            }
+        }
 
-                if (_randomService.IsSuccessful(
-                    GetChance(generation)) == false)
-                     return;
+        private void CreateExplosion(int generation, Vector3 cubePosition)
+        {
+            foreach (Cube cube in _activeCubes)
+            {
+                cube.AddForce(cubePosition, _explosionForce * generation, _explosionRadius * generation);
+            }
+        }
 
-                for(int i = 0; i < cubesNumber; i++)
-                {
-                    int newGeneration = generation + 1;
-                    Cube newCube = _gameFactory.CreateCube(spawnPosition);
-                    newCube.Generation = newGeneration;
-                    newCube.SetColor(_randomService.GetColor());
-                    newCube.SetScale(GetScale(newGeneration));
-                    newCube.AddForce(spawnPosition, _explosionForce, _explosionRadius);
-                }
+        private bool TryCreateNewCubes(int generation)
+        {
+            float chance = GetChance(generation);
+
+            if (_randomService.IsSuccessful(chance))
+                return true;
+
+            return false;
+        }
+
+        private void CreateCubes(int quantity, int previousGeneration, Vector3 position)
+        {
+            for(int i = 0; i < quantity; i++)
+            {
+                int generation = previousGeneration + 1;
+                Cube newCube = _gameFactory.CreateCube(position);
+                newCube.Generation = generation;
+                newCube.SetColor(_randomService.GetColor());
+                newCube.SetScale(GetScale(generation));
+                _activeCubes.Add(newCube);
             }
         }
 
@@ -107,18 +138,13 @@ namespace Codebase.Infrastructure
             initialValue * Mathf.Pow(step, memberNumber - 1);
     }
 
-    public partial class GameManager : IInitializable
+    public partial class CubeManager : IInitializable
     {
-        public void Initialize()
-        {
-            for(int i = 0; i < _initialCubesNumber;  i++)
-            {
-                _gameFactory.CreateCube(_initialCubesPosition);
-            }
-        }
+        public void Initialize() => 
+            CreateCubes(_initialCubesNumber, previousGeneration: 0, _initialCubesPosition);
     }
 
-    public partial class GameManager : IDisposable
+    public partial class CubeManager : IDisposable
     {
         public void Dispose()
         {
