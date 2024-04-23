@@ -9,6 +9,7 @@ namespace Codebase.Logic
         [SerializeField] private Rigidbody _rigidbody;
 
         private Transform _transform;
+        public int Generation { get; private set; }
 
         private void OnValidate()
         {
@@ -24,7 +25,14 @@ namespace Codebase.Logic
             _transform = transform;
         }
 
-        public int Generation { get; set; } = 1;
+        public void SetGeneration(int generation)
+        {
+            if (generation < 1)
+                throw new InvalidOperationException(
+                    $"{generation} cannot be less than one");
+
+            Generation = generation;
+        }
 
         public void SetColor(Color color) =>
             _render.material.color = color;

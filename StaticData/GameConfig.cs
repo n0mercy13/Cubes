@@ -13,9 +13,7 @@ namespace Codebase.StaticData
         [field: SerializeField, Range(0f, 20f)] public float ExplosionRadius { get; private set; } = 10f;
         [field: SerializeField, Range(0, 100)] public int MaxRaycastDistance { get; private set; } = 70;
         [field: SerializeField] public LayerMask RaycastLayerMask { get; private set; }
-
-        public readonly int MinCubesOnClick = 2;
-        public readonly int MaxCubesOnClick = 6;
-
+        [field: SerializeField, Min(1)] public int MinCubesOnClick { get; private set; } = 2;
+        [field: SerializeField, Min(1)] public int MaxCubesOnClick { get; private set; } = 6;
     }
 }

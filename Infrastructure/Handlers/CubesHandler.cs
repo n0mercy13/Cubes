@@ -7,24 +7,24 @@ using Infrastructure.Services;
 
 namespace Codebase.Infrastructure
 {
-    public partial class CubeManager
+    public partial class CubesHandler
     {
         private readonly IGameFactory _gameFactory;
         private readonly IGameplayInput _gameplayInput;
         private readonly IRandomService _randomService;
-        private readonly List<Cube> _activeCubes;
-        private readonly Camera _camera;
         private readonly RaycastHit[] _hits;
         private readonly Vector3 _initialCubesPosition;
         private readonly LayerMask _layerMask;
+        private readonly List<Cube> _activeCubes;
+        private readonly Camera _camera;
         private readonly float _explosionForce;
         private readonly float _explosionRadius;
         private readonly int _initialCubesNumber;
-        private readonly int _maxDistance = 20;
+        private readonly int _maxDistance;
         private readonly int _minNewCubes;
         private readonly int _maxNewCubes;
 
-        public CubeManager(
+        public CubesHandler(
             IGameFactory gameFactory,
             IGameplayInput gameplayInput,
             IRandomService randomService,
@@ -74,9 +74,7 @@ namespace Codebase.Infrastructure
         private void CreateExplosion(int generation, Vector3 cubePosition)
         {
             foreach (Cube cube in _activeCubes)
-            {
                 cube.AddForce(cubePosition, _explosionForce * generation, _explosionRadius * generation);
-            }
         }
 
         private bool TryCreateNewCubes(int generation)
@@ -95,7 +93,7 @@ namespace Codebase.Infrastructure
             {
                 int generation = previousGeneration + 1;
                 Cube newCube = _gameFactory.CreateCube(position);
-                newCube.Generation = generation;
+                newCube.SetGeneration(generation);
                 newCube.SetColor(_randomService.GetColor());
                 newCube.SetScale(GetScale(generation));
                 _activeCubes.Add(newCube);
@@ -138,13 +136,13 @@ namespace Codebase.Infrastructure
             initialValue * Mathf.Pow(step, memberNumber - 1);
     }
 
-    public partial class CubeManager : IInitializable
+    public partial class CubesHandler : IInitializable
     {
         public void Initialize() => 
             CreateCubes(_initialCubesNumber, previousGeneration: 0, _initialCubesPosition);
     }
 
-    public partial class CubeManager : IDisposable
+    public partial class CubesHandler : IDisposable
     {
         public void Dispose()
         {

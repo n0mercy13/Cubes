@@ -34,7 +34,7 @@ namespace Codebase.Infrastructure
                 .Register<GameFactory>(Lifetime.Singleton)
                 .AsImplementedInterfaces();
             builder
-                .Register<CubeManager>(Lifetime.Singleton)
+                .Register<CubesHandler>(Lifetime.Singleton)
                 .AsImplementedInterfaces();
             builder
                 .Register<InputActions>(Lifetime.Singleton)
