@@ -25,6 +25,18 @@ namespace Infrastructure.Services
             return new Color(r, g, b, a);
         }
 
+        public Vector3 Range(Vector3 minPoint, Vector3 maxPoint)
+        {
+            float x = Range(minPoint.x, maxPoint.x);
+            float y = Range(minPoint.y, maxPoint.y);
+            float z = Range(minPoint.z, maxPoint.z);
+
+            return new Vector3(x, y, z);
+        }
+
+        public float Range(float minNumber, float maxNumber) =>
+            minNumber + (maxNumber - minNumber) * (float)_random.NextDouble();
+
         public int Range(int minNumber, int maxNumber) =>
             minNumber + (int)((maxNumber - minNumber) * _random.NextDouble());
 

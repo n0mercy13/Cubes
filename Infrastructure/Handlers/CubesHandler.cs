@@ -4,6 +4,7 @@ using UnityEngine;
 using Codebase.Logic;
 using Codebase.StaticData;
 using Infrastructure.Services;
+using System.Collections;
 
 namespace Codebase.Infrastructure
 {
@@ -13,9 +14,11 @@ namespace Codebase.Infrastructure
         private readonly IGameplayInput _gameplayInput;
         private readonly IRandomService _randomService;
         private readonly RaycastHit[] _hits;
-        private readonly Vector3 _initialCubesPosition;
+        private readonly Vector3 _minSpawnPoint;
+        private readonly Vector3 _maxSpawnPoint;
         private readonly LayerMask _layerMask;
         private readonly List<Cube> _activeCubes;
+        private readonly CoroutineRunner _coroutineRunner;
         private readonly Camera _camera;
         private readonly float _explosionForce;
         private readonly float _explosionRadius;
@@ -23,6 +26,8 @@ namespace Codebase.Infrastructure
         private readonly int _maxDistance;
         private readonly int _minNewCubes;
         private readonly int _maxNewCubes;
+        private Coroutine _createCubesCoroutine;
+        private YieldInstruction _spawnDelay;
 
         public CubesHandler(
             IGameFactory gameFactory,
@@ -37,7 +42,9 @@ namespace Codebase.Infrastructure
             _activeCubes = new List<Cube>();
             _camera = sceneData.Camera;
             _hits = new RaycastHit[1];
-            _initialCubesPosition = sceneData.InitialSpawnPoint.position;
+            _minSpawnPoint = sceneData.MinSpawnPoint.position;
+            _maxSpawnPoint = sceneData.MaxSpawnPoint.position;
+            _coroutineRunner = sceneData.CoroutineRunner;
             _initialCubesNumber = gameConfig.InitialCubesNumber;
             _maxDistance = gameConfig.MaxRaycastDistance;
             _layerMask = gameConfig.RaycastLayerMask;
@@ -46,7 +53,22 @@ namespace Codebase.Infrastructure
             _minNewCubes = gameConfig.MinCubesOnClick;
             _maxNewCubes = gameConfig.MaxCubesOnClick;
 
+            _spawnDelay = new WaitForSeconds(gameConfig.SpawnDelay);
             _gameplayInput.Selected += OnSelected;
+        }
+
+        private IEnumerator SpawnCubes()
+        {
+            int zeroGeneration = 0;
+            Vector3 spawnPoint;
+
+            while (_coroutineRunner.gameObject.activeSelf)
+            {
+                spawnPoint = _randomService.Range(_minSpawnPoint, _maxSpawnPoint);
+                CreateCube(zeroGeneration, spawnPoint);
+
+                yield return _spawnDelay;
+            }
         }
 
         private void OnSelected(Vector2 mousePosition)
@@ -90,14 +112,16 @@ namespace Codebase.Infrastructure
         private void CreateCubes(int quantity, int previousGeneration, Vector3 position)
         {
             for(int i = 0; i < quantity; i++)
-            {
-                int generation = previousGeneration + 1;
-                Cube newCube = _gameFactory.CreateCube(position);
-                newCube.SetGeneration(generation);
-                newCube.SetColor(_randomService.GetColor());
-                newCube.SetScale(GetScale(generation));
-                _activeCubes.Add(newCube);
-            }
+                CreateCube(previousGeneration, position);   
+        }
+
+        private void CreateCube(int previousGeneration, Vector3 position)
+        {
+            int generation = previousGeneration + 1;
+            Cube newCube = _gameFactory.CreateCube(position);
+            newCube.SetGeneration(generation);
+            newCube.SetScale(GetScale(generation));
+            _activeCubes.Add(newCube);
         }
 
         private bool TryGetCube(Vector2 mousePosition, out Cube cube)
@@ -136,10 +160,13 @@ namespace Codebase.Infrastructure
             initialValue * Mathf.Pow(step, memberNumber - 1);
     }
 
-    public partial class CubesHandler : IInitializable
+    public partial class CubesHandler : ICubesHandler 
     {
-        public void Initialize() => 
-            CreateCubes(_initialCubesNumber, previousGeneration: 0, _initialCubesPosition);
+        public void SpawnCubesAsync()
+        {
+            _createCubesCoroutine = _coroutineRunner
+                .StartCoroutine(SpawnCubes());
+        }
     }
 
     public partial class CubesHandler : IDisposable
@@ -147,6 +174,9 @@ namespace Codebase.Infrastructure
         public void Dispose()
         {
             _gameplayInput.Selected -= OnSelected;
+
+            if(_createCubesCoroutine != null)
+                _coroutineRunner.StopCoroutine(_createCubesCoroutine);
         }
     }
 }
